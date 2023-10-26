@@ -1,0 +1,30 @@
+---
+- name: Reload MySQL Configuration
+  ansible.builtin.service:
+    name: mysql
+    state: restarted
+- name: Restart Zabbix Server
+  service:
+    name: zabbix-server
+    state: restarted
+- name: Ensure Zabbix Server is enabled to start at boot
+  systemd:
+    name: zabbix-server
+    enabled: 'yes'
+  notify:
+    - Restart Zabbix Server
+- name: Restart Zabbix Server
+  service:
+    name: zabbix-agent
+    state: restarted
+- name: Ensure Zabbix Server is enabled to start at boot
+  systemd:
+    name: zabbix-angent
+    enabled: 'yes'
+  notify:
+    - Restart Zabbix agent
+    
+- name: restart apache
+  service:
+    name: apache2
+    state: restarted

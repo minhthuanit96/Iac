@@ -1,0 +1,116 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: 'yes'
+- name: Download Zabbix Release .deb file
+  get_url:
+    url: >-
+      https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu20.04_all.deb
+    dest: /tmp/zabbix-release_6.4-1+ubuntu20.04_all.deb
+- name: Install Zabbix Release .deb file
+  command: dpkg -i /tmp/zabbix-release_6.4-1+ubuntu20.04_all.deb
+- name: Update package lists
+  command: apt update
+- name: Install Zabbix components
+  apt:
+    name: '{{ item }}'
+    state: present
+  with_items:
+    - zabbix-server-mysql
+    - zabbix-frontend-php
+    - zabbix-agent
+    - zabbix-apache-conf
+    - zabbix-sql-scripts
+- name: install software properties common
+  apt:
+    name: software-properties-common
+    state: present
+- name: Install dependencies
+  apt:
+    name: '{{ item }}'
+    state: present
+  with_items:
+    - mysql-common
+    - mysql-server
+    - mysql-client
+    - python3-pymysql
+
+- name: Start MySQL service
+  systemd:
+    name: mysql
+    state: started
+  ignore_errors: 'yes'
+- name: Enable MySQL service at boot
+  systemd:
+    name: mysql
+    enabled: 'yes'
+- name: Enable tài khoản root và đặt mật khẩu
+  user:
+    name: root
+    password: zabbix
+    update_password: always
+    shell: /bin/bash
+
+- name: Enable tài khoản root trong MySQL
+  command: 
+   mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'zabbix';"
+  ignore_errors: 'yes'
+- name: Đặt mật khẩu cho tài khoản root trong MySQL
+  command: 
+   mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH 'mysql_native_password' BY 'zabbix';"
+  
+- name: Create Zabbix Database
+  mysql_db:
+    name: zabbix
+    state: present
+    collation: utf8mb4_bin
+    encoding: utf8mb4
+    login_user: root
+    login_password: zabbix
+    
+- name: Grant Privileges to Zabbix User
+  mysql_user:
+    name: zabbix@localhost
+    priv: '*.*:ALL'
+    password: zabbix
+    login_user: root
+    login_password: zabbix
+    
+- name: Flush MySQL privileges
+  mysql_query:
+    login_user: root
+    login_password: zabbix
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    login_host: localhost
+    query: FLUSH PRIVILEGES
+
+- name: Exit MySQL
+  shell: echo "exit" | mysql -u root --password=zabbix
+  
+- name: Unzip and Import Zabbix Database
+  shell:
+    zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | mysql --default-character-set=utf8mb4 -uroot -pzabbix zabbix
+    
+- name: Replace DBUser in zabbix_server.conf
+  replace:
+    path: /etc/zabbix/zabbix_server.conf
+    regexp: '{{ item.regexp }}'
+    replace: '{{ item.replace }}'
+  loop:
+    - regexp: DBUser=.*
+      replace: DBUser=root
+    - regexp: DBName=.*
+      replace: DBName=zabbix
+    - regexp: ^#?\s*DBPassword=.*
+      replace: DBPassword=zabbix
+  notify:
+    - Restart Zabbix Server
+
+- name: Restart Apache service
+  shell: systemctl restart apache2
+
+
+
+
+
+
