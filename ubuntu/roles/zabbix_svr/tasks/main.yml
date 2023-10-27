@@ -1,16 +1,25 @@
 ---
+# Smilar command sudo apt update
 - name: Update apt cache
   apt:
     update_cache: 'yes'
+    
+# Smilar command wget https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu20.04_all.deb
 - name: Download Zabbix Release .deb file
   get_url:
-    url: >-
+    url:
       https://repo.zabbix.com/zabbix/6.4/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.4-1+ubuntu20.04_all.deb
     dest: /tmp/zabbix-release_6.4-1+ubuntu20.04_all.deb
+
+# Smilar command dpkg -i zabbix-release_6.4-1+ubuntu20.04_all.deb
 - name: Install Zabbix Release .deb file
   command: dpkg -i /tmp/zabbix-release_6.4-1+ubuntu20.04_all.deb
+
+# Smilar command sudo apt update
 - name: Update package lists
   command: apt update
+
+# Follow the Steps as below to install necessary packages of zabbix, mysql, apache (note: This is one of method to deloy zabbix)
 - name: Install Zabbix components
   apt:
     name: '{{ item }}'
@@ -21,10 +30,12 @@
     - zabbix-agent
     - zabbix-apache-conf
     - zabbix-sql-scripts
+
 - name: install software properties common
   apt:
     name: software-properties-common
     state: present
+
 - name: Install dependencies
   apt:
     name: '{{ item }}'
@@ -40,22 +51,25 @@
     name: mysql
     state: started
   ignore_errors: 'yes'
+  
 - name: Enable MySQL service at boot
   systemd:
     name: mysql
     enabled: 'yes'
-- name: Enable tài khoản root và đặt mật khẩu
+    
+- name: Enable root account and set password
   user:
     name: root
     password: zabbix
     update_password: always
     shell: /bin/bash
 
-- name: Enable tài khoản root trong MySQL
+- name: Enable root account in MySQL
   command: 
    mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'zabbix';"
   ignore_errors: 'yes'
-- name: Đặt mật khẩu cho tài khoản root trong MySQL
+  
+- name: Set Password for root account in MySQL
   command: 
    mysql -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH 'mysql_native_password' BY 'zabbix';"
   
@@ -86,8 +100,9 @@
 
 - name: Exit MySQL
   shell: echo "exit" | mysql -u root --password=zabbix
-  
-- name: Unzip and Import Zabbix Database
+
+# Init DB for Zabbix 
+- name: Unzip and Import Zabbix Database 
   shell:
     zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | mysql --default-character-set=utf8mb4 -uroot -pzabbix zabbix
     
