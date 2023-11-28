@@ -52,15 +52,15 @@ resource "null_resource" "ansible_inventory" {
   provisioner "local-exec" {
     command = <<-EOF
       echo "[zabbixs]
-      zabbix ansible_host=${module.linuxvm.ip[0]} ansible_user=it ansible_ssh_pass=it ansible_become_pass=it ansible_ssh_extra_args='-o StrictHostKeyChecking=no'" > ansible/hosts.ini
+      zabbix ansible_host=${module.linuxvm.ip[0]} ansible_user=it ansible_ssh_pass=it ansible_ssh_extra_args='-o StrictHostKeyChecking=no'" > ansible/hosts.ini
       EOF
   }
 }
-resource "null_resource" "run_ansible" {
-  depends_on = [null_resource.ansible_inventory]
-  provisioner "local-exec" {
-    command = "ansible-playbook -i hosts.ini playbook.yml"
-    working_dir = "${path.module}/ansible/"
-  }
-}
+# resource "null_resource" "run_ansible" {
+#   depends_on = [null_resource.ansible_inventory]
+#   provisioner "local-exec" {
+#     command = "ansible-playbook -i hosts.ini playbook.yml"
+#     working_dir = "${path.module}/ansible/"
+#   }
+# }
 
