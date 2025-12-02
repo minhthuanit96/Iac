@@ -1,0 +1,32 @@
+# Proxmox Configuration
+proxmox_api_url  = "https://proxmox.example.com:8006"
+proxmox_user     = "root@pam"
+proxmox_password = "your-password"
+proxmox_node     = "pve"
+template_id      = 9000  # Change to your template VM ID
+
+# VM Configuration
+vm_name      = "snipeit-server"
+vm_cores     = 2
+vm_memory    = 4096
+vm_disk_size = 40
+vm_storage   = "local-lvm"
+
+# Network Configuration
+vm_network_bridge = "vmbr0"
+vm_ip_address     = "192.168.1.150/24"
+vm_gateway        = "192.168.1.1"
+vm_dns_servers    = ["8.8.8.8", "8.8.4.4"]
+# Or use DHCP:
+# vm_ip_address = "dhcp"
+# vm_gateway    = ""
+
+# SSH Configuration
+vm_user = "ubuntu"
+ssh_public_key = <<-EOT
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-public-key-here
+EOT
+
+# Snipe-IT Configuration
+snipeit_app_url     = "http://192.168.1.150"  # Change to your VM IP or domain
+snipeit_db_password = "SecurePassword123!@#"   # Change this!

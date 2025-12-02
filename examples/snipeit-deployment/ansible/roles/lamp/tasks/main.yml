@@ -1,0 +1,97 @@
+---
+# LAMP Stack installation for Snipe-IT
+
+- name: Install Apache web server
+  apt:
+    name:
+      - apache2
+      - apache2-utils
+    state: present
+
+- name: Install MySQL server
+  apt:
+    name:
+      - mysql-server
+      - python3-pymysql
+    state: present
+
+- name: Start and enable MySQL service
+  systemd:
+    name: mysql
+    state: started
+    enabled: yes
+
+- name: Secure MySQL installation
+  mysql_user:
+    name: root
+    password: "{{ mysql_root_password }}"
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+    check_implicit_admin: yes
+    state: present
+
+- name: Remove anonymous MySQL users
+  mysql_user:
+    name: ''
+    host_all: yes
+    state: absent
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+
+- name: Remove test database
+  mysql_db:
+    name: test
+    state: absent
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+
+- name: Add PHP repository
+  apt_repository:
+    repo: ppa:ondrej/php
+    state: present
+    update_cache: yes
+
+- name: Install PHP and required extensions for Snipe-IT
+  apt:
+    name:
+      - php8.1
+      - php8.1-cli
+      - php8.1-common
+      - php8.1-mysql
+      - php8.1-curl
+      - php8.1-mbstring
+      - php8.1-xml
+      - php8.1-zip
+      - php8.1-gd
+      - php8.1-bcmath
+      - php8.1-ldap
+      - libapache2-mod-php8.1
+    state: present
+
+- name: Enable Apache modules
+  apache2_module:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - rewrite
+    - headers
+  notify: Restart Apache
+
+- name: Start and enable Apache service
+  systemd:
+    name: apache2
+    state: started
+    enabled: yes
+
+- name: Install Composer
+  shell: |
+    curl -sS https://getcomposer.org/installer | php
+    mv composer.phar /usr/local/bin/composer
+    chmod +x /usr/local/bin/composer
+  args:
+    creates: /usr/local/bin/composer
+
+handlers:
+  - name: Restart Apache
+    systemd:
+      name: apache2
+      state: restarted

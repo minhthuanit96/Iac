@@ -1,0 +1,140 @@
+---
+# Snipe-IT Installation and Configuration
+
+- name: Create Snipe-IT database
+  mysql_db:
+    name: "{{ snipeit_db_name }}"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    encoding: utf8mb4
+    collation: utf8mb4_unicode_ci
+
+- name: Create Snipe-IT database user
+  mysql_user:
+    name: "{{ snipeit_db_user }}"
+    password: "{{ snipeit_db_password }}"
+    priv: "{{ snipeit_db_name }}.*:ALL"
+    state: present
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+
+- name: Clone Snipe-IT repository
+  git:
+    repo: 'https://github.com/snipe/snipe-it.git'
+    dest: "{{ snipeit_install_dir }}"
+    version: "{{ snipeit_version }}"
+    force: yes
+
+- name: Set ownership of Snipe-IT directory
+  file:
+    path: "{{ snipeit_install_dir }}"
+    owner: www-data
+    group: www-data
+    recurse: yes
+
+- name: Copy .env.example to .env
+  copy:
+    src: "{{ snipeit_install_dir }}/.env.example"
+    dest: "{{ snipeit_install_dir }}/.env"
+    owner: www-data
+    group: www-data
+    mode: '0644'
+    remote_src: yes
+    force: no
+
+- name: Configure Snipe-IT .env file
+  lineinfile:
+    path: "{{ snipeit_install_dir }}/.env"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+  loop:
+    - { regexp: '^APP_URL=', line: "APP_URL={{ snipeit_app_url }}" }
+    - { regexp: '^APP_TIMEZONE=', line: 'APP_TIMEZONE=UTC' }
+    - { regexp: '^DB_DATABASE=', line: "DB_DATABASE={{ snipeit_db_name }}" }
+    - { regexp: '^DB_USERNAME=', line: "DB_USERNAME={{ snipeit_db_user }}" }
+    - { regexp: '^DB_PASSWORD=', line: "DB_PASSWORD={{ snipeit_db_password }}" }
+
+- name: Install Composer dependencies
+  become: yes
+  become_user: www-data
+  composer:
+    command: install
+    working_dir: "{{ snipeit_install_dir }}"
+    no_dev: yes
+  environment:
+    COMPOSER_ALLOW_SUPERUSER: "1"
+
+- name: Generate application key
+  shell: |
+    php artisan key:generate --force
+  args:
+    chdir: "{{ snipeit_install_dir }}"
+  become: yes
+  become_user: www-data
+
+- name: Run database migrations
+  shell: |
+    php artisan migrate --force
+  args:
+    chdir: "{{ snipeit_install_dir }}"
+  become: yes
+  become_user: www-data
+
+- name: Set proper permissions for storage and cache
+  file:
+    path: "{{ snipeit_install_dir }}/{{ item }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0775'
+    recurse: yes
+  loop:
+    - storage
+    - public/uploads
+    - bootstrap/cache
+
+- name: Create Apache virtual host for Snipe-IT
+  copy:
+    content: |
+      <VirtualHost *:80>
+          ServerAdmin admin@localhost
+          DocumentRoot {{ snipeit_install_dir }}/public
+          
+          <Directory {{ snipeit_install_dir }}/public>
+              Options Indexes FollowSymLinks
+              AllowOverride All
+              Require all granted
+          </Directory>
+          
+          ErrorLog ${APACHE_LOG_DIR}/snipeit_error.log
+          CustomLog ${APACHE_LOG_DIR}/snipeit_access.log combined
+      </VirtualHost>
+    dest: /etc/apache2/sites-available/snipeit.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Disable default Apache site
+  command: a2dissite 000-default.conf
+  notify: Restart Apache
+
+- name: Enable Snipe-IT site
+  command: a2ensite snipeit.conf
+  notify: Restart Apache
+
+- name: Create initial admin user script
+  copy:
+    content: |
+      #!/bin/bash
+      cd {{ snipeit_install_dir }}
+      php artisan snipeit:create-admin --first_name=Admin --last_name=User --email=admin@example.com --username=admin --password=admin123 || true
+    dest: /tmp/create_snipeit_admin.sh
+    mode: '0755'
+
+handlers:
+  - name: Restart Apache
+    systemd:
+      name: apache2
+      state: restarted

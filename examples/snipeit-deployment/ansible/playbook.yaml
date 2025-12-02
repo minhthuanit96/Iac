@@ -1,0 +1,49 @@
+---
+- name: Deploy Snipe-IT Asset Management System
+  hosts: snipeit
+  become: yes
+  
+  vars:
+    # MySQL Configuration
+    mysql_root_password: "RootPassword123!@#"
+    snipeit_db_name: "snipeit"
+    snipeit_db_user: "snipeituser"
+    snipeit_db_password: "SecurePassword123!@#"  # Change this!
+    
+    # Snipe-IT Configuration
+    snipeit_app_url: "http://{{ ansible_default_ipv4.address }}"
+    snipeit_app_key: ""  # Will be generated during installation
+    
+    # Application Settings
+    snipeit_version: "v6.3.0"  # Latest stable version
+    snipeit_install_dir: "/var/www/snipeit"
+  
+  roles:
+    - common
+    - lamp
+    - snipeit
+  
+  post_tasks:
+    - name: Display Snipe-IT access information
+      debug:
+        msg: |
+          ========================================
+          Snipe-IT Deployment Complete!
+          ========================================
+          
+          Access Snipe-IT at: {{ snipeit_app_url }}
+          
+          Complete the initial setup wizard:
+          1. Database is already configured
+          2. Create your admin account
+          3. Configure your organization settings
+          
+          Database Information (if needed):
+          - Database: {{ snipeit_db_name }}
+          - Username: {{ snipeit_db_user }}
+          - Password: {{ snipeit_db_password }}
+          - Host: localhost
+          
+          Application directory: {{ snipeit_install_dir }}
+          
+          ========================================
